@@ -90,12 +90,19 @@ struct dst_entry {
 	 * frequently accessed members of rtable and rt6_info out of the
 	 * __rcuref cache line.
 	 */
-	struct list_head	rt_uncached;
-	struct uncached_list	*rt_uncached_list;
-#ifdef CONFIG_64BIT
-	struct lwtunnel_state   *lwtstate;
-#endif
-};
+	        struct list_head        rt_uncached;
+	        struct uncached_list    *rt_uncached_list;
+	#ifdef CONFIG_64BIT
+	        struct lwtunnel_state   *lwtstate;
+	#endif
+	        /* USER ADDED: Start of power-aware routing metrics */
+	        u64 ema_load;
+	        u64 ema_time_delta;
+	        u64 last_update_jiffies;
+	        unsigned int ema_k_factor;
+	        unsigned int power_cost_weight;
+	        /* USER ADDED: End of power-aware routing metrics */
+	};
 
 struct dst_metrics {
 	u32		metrics[RTAX_MAX];

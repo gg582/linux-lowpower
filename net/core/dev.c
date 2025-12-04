@@ -68,6 +68,8 @@
  *				        - netif_rx() feedback
  */
 
+#define EMA_UPDATE(K, Old, New) (((K) * (New) + (1024 - (K)) * (Old)) / 1024)
+
 #include <linux/uaccess.h>
 #include <linux/bitmap.h>
 #include <linux/capability.h>
@@ -172,6 +174,7 @@ static DEFINE_SPINLOCK(ptype_lock);
 struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
 
 static int netif_rx_internal(struct sk_buff *skb);
+static void update_dst_ems_metrics(struct dst_entry *dst, unsigned int tx_bytes);
 static int call_netdevice_notifiers_extack(unsigned long val,
 					   struct net_device *dev,
 					   struct netlink_ext_ack *extack);
@@ -3867,6 +3870,12 @@ struct sk_buff *dev_hard_start_xmit(struct sk_buff *first, struct net_device *de
 
 		skb_mark_not_on_list(skb);
 		rc = xmit_one(skb, dev, txq, next != NULL);
+		if (likely(dev_xmit_complete(rc))) {
+			struct dst_entry *dst = skb_dst(skb);
+			if (dst)
+				update_dst_ems_metrics(dst, skb->len);
+		}
+
 		if (unlikely(!dev_xmit_complete(rc))) {
 			skb->next = next;
 			goto out;
@@ -13272,6 +13281,32 @@ out:
 	}
 
 	return rc;
+}
+
+static void update_dst_ems_metrics(struct dst_entry *dst, unsigned int tx_bytes)
+{
+	u64 cur_jiffies = get_jiffies_64();
+	u64 delta_t = cur_jiffies - READ_ONCE(dst->last_update_jiffies);
+	u64 cur_load_rate;
+
+	if (!delta_t)
+		return;
+
+	cur_load_rate = tx_bytes / delta_t;
+
+	WRITE_ONCE(dst->ema_load, EMA_UPDATE(READ_ONCE(dst->ema_k_factor), READ_ONCE(dst->ema_load),
+				   cur_load_rate));
+
+	u64 diff;
+	if (cur_load_rate > READ_ONCE(dst->ema_load))
+		diff = cur_load_rate - READ_ONCE(dst->ema_load);
+	else
+		diff = READ_ONCE(dst->ema_load) - cur_load_rate;
+
+	WRITE_ONCE(dst->ema_time_delta, EMA_UPDATE(READ_ONCE(dst->ema_k_factor),
+					 READ_ONCE(dst->ema_time_delta),
+					 diff));
+	WRITE_ONCE(dst->last_update_jiffies, cur_jiffies);
 }
 
 subsys_initcall(net_dev_init);

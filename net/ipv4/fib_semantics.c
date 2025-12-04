@@ -84,6 +84,24 @@
 
 #define endfor_nexthops(fi) }
 
+static inline struct dst_entry *get_dst_entry_from_nhc(struct fib_nh_common *nhc)
+{
+	if (!nhc || !nhc->nhc_pcpu_rth_output)
+		return NULL;
+
+	struct rtable *rt = rcu_dereference(*this_cpu_ptr(nhc->nhc_pcpu_rth_output));
+	return rt ? &rt->dst : NULL;
+}
+
+static inline long calculate_lowpower_weight(struct dst_entry *dst)
+{
+	if (!dst)
+		return 0;
+
+	return (dst->ema_load + dst->ema_time_delta) * dst->power_cost_weight;
+}
+
+
 
 const struct fib_prop fib_props[RTN_MAX + 1] = {
 	[RTN_UNSPEC] = {
@@ -2161,15 +2179,19 @@ static bool fib_good_nh(const struct fib_nh *nh)
 
 	return !!(state & NUD_VALID);
 }
+#endif
 
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
 void fib_select_multipath(struct fib_result *res, int hash,
 			  const struct flowi4 *fl4)
 {
 	struct fib_info *fi = res->fi;
 	struct net *net = fi->fib_net;
-	bool found = false;
 	bool use_neigh;
 	__be32 saddr;
+	int found;
+	int lowpower_nh_index = -1;
+	long max_ema_weight = -1;
 
 	if (unlikely(res->fi->nh)) {
 		nexthop_path_fib_result(res, hash);
@@ -2178,37 +2200,54 @@ void fib_select_multipath(struct fib_result *res, int hash,
 
 	use_neigh = READ_ONCE(net->ipv4.sysctl_fib_multipath_use_neigh);
 	saddr = fl4 ? fl4->saddr : 0;
+	found = 0;
+
+	change_nexthops(fi) {
+		struct dst_entry *dst;
+		long current_weight;
+
+		if ((nexthop_nh->fib_nh_flags & RTNH_F_DEAD) ||
+		    (ip_ignore_linkdown(nexthop_nh->fib_nh_dev) &&
+		     (nexthop_nh->fib_nh_flags & RTNH_F_LINKDOWN)) ||
+		    (use_neigh && !fib_good_nh(nexthop_nh)))
+			continue;
+
+		dst = get_dst_entry_from_nhc(&nexthop_nh->nh_common);
+		current_weight = calculate_lowpower_weight(dst);
+
+		if (current_weight > max_ema_weight) {
+			max_ema_weight = current_weight;
+			lowpower_nh_index = nhsel;
+		}
+	} endfor_nexthops(fi);
+
+	if (lowpower_nh_index != -1) {
+		res->nh_sel = lowpower_nh_index;
+		res->nhc = fib_info_nhc(fi, lowpower_nh_index);
+		return;
+	}
 
 	change_nexthops(fi) {
 		int nh_upper_bound;
 
-		/* Nexthops without a carrier are assigned an upper bound of
-		 * minus one when "ignore_routes_with_linkdown" is set.
-		 */
 		nh_upper_bound = atomic_read(&nexthop_nh->fib_nh_upper_bound);
-		if (nh_upper_bound == -1 ||
-		    (use_neigh && !fib_good_nh(nexthop_nh)))
-			continue;
 
-		if (!found) {
+		if ((nh_upper_bound != -1) && (hash <= nh_upper_bound) &&
+		    !((nexthop_nh->fib_nh_flags & RTNH_F_DEAD)) &&
+		    !(ip_ignore_linkdown(nexthop_nh->fib_nh_dev) &&
+		      (nexthop_nh->fib_nh_flags & RTNH_F_LINKDOWN)) &&
+		    !(use_neigh && !fib_good_nh(nexthop_nh))) {
 			res->nh_sel = nhsel;
 			res->nhc = &nexthop_nh->nh_common;
-			found = !saddr || nexthop_nh->nh_saddr == saddr;
+			found = 1;
+			break;
 		}
-
-		if (hash > nh_upper_bound)
-			continue;
-
-		if (!saddr || nexthop_nh->nh_saddr == saddr) {
-			res->nh_sel = nhsel;
-			res->nhc = &nexthop_nh->nh_common;
-			return;
-		}
-
-		if (found)
-			return;
-
 	} endfor_nexthops(fi);
+
+	if (!found) {
+		res->nh_sel = 0;
+		res->nhc = &fi->fib_nh->nh_common;
+	}
 }
 #endif
 
