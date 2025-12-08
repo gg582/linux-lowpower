@@ -4855,7 +4855,6 @@ static inline void netif_addr_lock(struct net_device *dev)
 
 static inline void netif_addr_lock_bh(struct net_device *dev)
 {
-	unsigned char nest_level = 0;
 #ifdef CONFIG_LOCKDEP
 	nest_level = dev->nested_level;
 #endif

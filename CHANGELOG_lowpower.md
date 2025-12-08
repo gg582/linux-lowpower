@@ -1,9 +1,3 @@
-- Refactored `addr_list_lock` in `struct net_device` to explicitly use spinlocks.
-  - Reverted the `addr_list_lock` member in `include/linux/netdevice.h` to `spinlock_t`.
-  - Changed its initialization in `net/core/dev.c` (in `register_netdevice()`) to `spin_lock_init()` and added `netdev_set_addr_lockdep_class()`.
-  - Updated `netif_addr_lock()` and `netif_addr_lock_bh()` in `include/linux/netdevice.h` to use `spin_lock_nested()` and `spin_lock_bh()` respectively, with `CONFIG_LOCKDEP` handling.
-  - Removed incorrect documentation about `addr_list_lock` becoming a mutex from `CHANGELOG_lowpower.md` and `PLANS.md`.
-
 - Restructured `struct dst_entry` layout in `include/net/dst.h`.
   - Reverted internal member rearrangements to match the `origin/master` layout.
   - Moved EMA-related fields (`ema_load`, `ema_time_delta`, `last_update_jiffies`, `ema_k_factor`, `power_cost_weight`) to the very end of `struct dst_entry` to minimize ABI disruption.
@@ -27,3 +21,4 @@
 
 - Reviewed `this_cpu_ptr` and `rcu_dereference` usage in `get_dst_entry_from_fib6_nh` (`net/ipv6/route.c`).
   - Confirmed its usage is appropriate within an RCU read-side critical section, requiring no adjustments.
+- Added a custom governor `ecodemand`
