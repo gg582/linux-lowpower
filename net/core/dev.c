@@ -7682,8 +7682,18 @@ static int __napi_poll(struct napi_struct *n, bool *repoll)
 		netdev_err_once(n->dev, "NAPI poll function %pS returned %d, exceeding its budget of %d.\n",
 				n->poll, work, weight);
 
-	if (likely(work < weight))
+	if (likely(work < weight)) {
+		/* traffic is low, decrease weight for next time */
+		if (work < (weight / 2) && weight > 16)
+			n->weight = max(weight / 2, 16);
 		return work;
+	}
+
+	/* If we got here, work == weight, which means high traffic.
+	 * Increase weight for next time.
+	 */
+	if (n->weight < (NAPI_POLL_WEIGHT * 4))
+		n->weight = min(n->weight * 2, NAPI_POLL_WEIGHT * 4);
 
 	/* Drivers must not modify the NAPI state if they
 	 * consume the entire weight.  In such cases this code
@@ -11422,6 +11432,7 @@ int register_netdevice(struct net_device *dev)
 	dev_init_scheduler(dev);
 
 	netdev_hold(dev, &dev->dev_registered_tracker, GFP_KERNEL);
+
 	list_netdevice(dev);
 
 	add_device_randomness(dev->dev_addr, dev->addr_len);
