@@ -413,5 +413,15 @@ static void __exit bbr3_unregister(void)
 module_init(bbr3_register);
 module_exit(bbr3_unregister);
 
-MODULE_AUTHOR("Google BBR Team / Tweak by Lee Yunjin <gzblues61@daum.net>");
+MODULE_AUTHOR("Van Jacobson <vanj@google.com>");
+MODULE_AUTHOR("Neal Cardwell <ncardwell@google.com>");
+MODULE_AUTHOR("Yuchung Cheng <ycheng@google.com>");
+MODULE_AUTHOR("Soheil Hassas Yeganeh <soheil@google.com>");
+MODULE_AUTHOR("Priyaranjan Jha <priyarjha@google.com>");
+MODULE_AUTHOR("Yousuk Seung <ysseung@google.com>");
+MODULE_AUTHOR("Kevin Yang <yyd@google.com>");
+MODULE_AUTHOR("Arjun Roy <arjunroy@google.com>");
+MODULE_AUTHOR("David Morley <morleyd@google.com>");
+
+MODULE_AUTHOR("Tweak by Lee Yunjin <gzblues61@daum.net>");
 MODULE_LICENSE("Dual BSD/GPL");
