@@ -1,310 +1,66 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BBRv3 Vanilla vs Tweaked - Network Test Summary</title>
-  <style>
-    :root {
-      --bg: #0b0c10;
-      --card: #11131a;
-      --text: #e7e7e7;
-      --muted: #a7a7a7;
-      --line: #2a2f3a;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-    }
-    body {
-      margin: 0;
-      font-family: var(--sans);
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.35;
-    }
-    header {
-      padding: 24px 18px 12px;
-      border-bottom: 1px solid var(--line);
-    }
-    h1 {
-      margin: 0 0 6px;
-      font-size: 20px;
-      font-weight: 700;
-    }
-    .sub {
-      margin: 0;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    main {
-      padding: 18px;
-      display: grid;
-      gap: 16px;
-      max-width: 980px;
-      margin: 0 auto;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 14px 14px 10px;
-      overflow: hidden;
-    }
-    .card h2 {
-      margin: 0 0 10px;
-      font-size: 16px;
-      font-weight: 700;
-    }
-    .meta {
-      display: grid;
-      gap: 6px;
-      color: var(--muted);
-      font-size: 12px;
-      margin-bottom: 10px;
-    }
-    .table-wrap {
-      overflow-x: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 720px;
-      font-size: 13px;
-    }
-    thead th {
-      text-align: left;
-      border-bottom: 1px solid var(--line);
-      padding: 10px 10px;
-      color: var(--text);
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    tbody td, tbody th {
-      border-bottom: 1px solid var(--line);
-      padding: 9px 10px;
-      vertical-align: top;
-    }
-    tbody th {
-      text-align: left;
-      font-weight: 600;
-      color: var(--text);
-      white-space: nowrap;
-    }
-    td.num, th.num {
-      text-align: right;
-      font-family: var(--mono);
-      white-space: nowrap;
-    }
-    code {
-      font-family: var(--mono);
-      font-size: 12px;
-    }
-    .footer {
-      color: var(--muted);
-      font-size: 12px;
-      padding: 8px 2px 0;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>BBRv3 Vanilla vs Tweaked (Network Test Summary)</h1>
-    <p class="sub">Generated: <code>2025-12-27 14:57:10</code> from <code>results_net_test.zip</code>. Both runs use BBRv3; “Tweaked” adjusts pacing/cwnd response to bandwidth drops.</p>
-  </header>
+<style>
+  .bbr-results-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: center; }
+  .bbr-results-table th { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; font-weight: bold; }
+  .bbr-results-table td { border: 1px solid #dee2e6; padding: 10px; }
+  .improv-plus { color: #28a745; font-weight: bold; }
+  .improv-minus { color: #dc3545; font-weight: bold; }
+  .vanilla-row { background-color: #ffffff; }
+  .modified-row { background-color: #f1f8ff; }
+</style>
 
-  <main>
-    
-<section class="card">
-  <h2>Ping (Local)</h2>
-  
-    <div class="meta">
-      <div><b>Target</b>: <code>192.168.168.102</code></div>
-      <div><b>Vanilla run</b>: 20251227-234845 (<code>6.18.0-mountain+</code>)</div>
-      <div><b>Modified run</b>: 20251227-234454 (<code>6.18.0-mountain+</code>)</div>
-      <div><b>Note</b>: Under 100% CPU load, ICMP “loss” can be a local scheduling/softirq delay artifact. If <code>ping -W 5</code> eliminates it, it was likely not a true network drop.</div>
-    </div>
-    
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Metric</th>
-          <th class="num">Vanilla</th>
-          <th class="num">Modified</th>
-          <th class="num">Δ (M−V)</th>
-          <th class="num">Δ%</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-      <tr>
-        <th scope="row">Packets transmitted</th>
-        <td class="num">1000</td>
-        <td class="num">1000</td>
-        <td class="num">+0</td>
-        <td class="num">+0.00%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">Packets received</th>
-        <td class="num">1000</td>
-        <td class="num">1000</td>
-        <td class="num">+0</td>
-        <td class="num">+0.00%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">Packet loss</th>
-        <td class="num">0.000%</td>
-        <td class="num">0.000%</td>
-        <td class="num">+0.000%</td>
-        <td class="num">—</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">Duration</th>
-        <td class="num">104.767s</td>
-        <td class="num">104.571s</td>
-        <td class="num">-0.196s</td>
-        <td class="num">-0.19%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">RTT min</th>
-        <td class="num">0.010 ms</td>
-        <td class="num">0.014 ms</td>
-        <td class="num">+0.004 ms</td>
-        <td class="num">+40.00%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">RTT avg</th>
-        <td class="num">0.016 ms</td>
-        <td class="num">0.026 ms</td>
-        <td class="num">+0.010 ms</td>
-        <td class="num">+62.50%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">RTT max</th>
-        <td class="num">0.058 ms</td>
-        <td class="num">6.933 ms</td>
-        <td class="num">+6.875 ms</td>
-        <td class="num">+11853.45%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">RTT mdev</th>
-        <td class="num">0.006 ms</td>
-        <td class="num">0.239 ms</td>
-        <td class="num">+0.233 ms</td>
-        <td class="num">+3883.33%</td>
-      </tr>
-    
-      </tbody>
-    </table>
-  </div>
-</section>
-
-    
-<section class="card">
-  <h2>Ping (WAN)</h2>
-  
-    <div class="meta">
-      <div><b>Target</b>: <code>1.1.1.1</code></div>
-      <div><b>Vanilla run</b>: 20251227-234845 (<code>6.18.0-mountain+</code>)</div>
-      <div><b>Modified run</b>: 20251227-234454 (<code>6.18.0-mountain+</code>)</div>
-      <div><b>Note</b>: Under 100% CPU load, ICMP “loss” can be a local scheduling/softirq delay artifact. If <code>ping -W 5</code> eliminates it, it was likely not a true network drop.</div>
-    </div>
-    
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Metric</th>
-          <th class="num">Vanilla</th>
-          <th class="num">Modified</th>
-          <th class="num">Δ (M−V)</th>
-          <th class="num">Δ%</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-      <tr>
-        <th scope="row">Packets transmitted</th>
-        <td class="num">1000</td>
-        <td class="num">1000</td>
-        <td class="num">+0</td>
-        <td class="num">+0.00%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">Packets received</th>
-        <td class="num">997</td>
-        <td class="num">1000</td>
-        <td class="num">+3</td>
-        <td class="num">+0.30%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">Packet loss</th>
-        <td class="num">0.300%</td>
-        <td class="num">0.000%</td>
-        <td class="num">-0.300%</td>
-        <td class="num">-100.00%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">Duration</th>
-        <td class="num">100.721s</td>
-        <td class="num">100.719s</td>
-        <td class="num">-0.002s</td>
-        <td class="num">-0.00%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">RTT min</th>
-        <td class="num">5.067 ms</td>
-        <td class="num">5.616 ms</td>
-        <td class="num">+0.549 ms</td>
-        <td class="num">+10.83%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">RTT avg</th>
-        <td class="num">5.834 ms</td>
-        <td class="num">6.312 ms</td>
-        <td class="num">+0.478 ms</td>
-        <td class="num">+8.19%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">RTT max</th>
-        <td class="num">39.210 ms</td>
-        <td class="num">6.995 ms</td>
-        <td class="num">-32.215 ms</td>
-        <td class="num">-82.16%</td>
-      </tr>
-    
-      <tr>
-        <th scope="row">RTT mdev</th>
-        <td class="num">1.124 ms</td>
-        <td class="num">0.215 ms</td>
-        <td class="num">-0.909 ms</td>
-        <td class="num">-80.87%</td>
-      </tr>
-    
-      </tbody>
-    </table>
-  </div>
-</section>
-
-    <section class="card">
-      <h2>ICMP loss interpretation (CPU 100% load)</h2>
-      <div class="meta">
-        <div>If a reported ICMP loss disappears when increasing timeout (e.g., <code>ping -W 5</code>), it was likely a local delay artifact (scheduling or delayed <code>NET_RX</code> softirq), not a true network drop.</div>
-      </div>
-      <div class="footer">Tip: For proof, capture ICMP with <code>tcpdump</code> and check whether the reply arrives late vs never arrives.</div>
-    </section>
-  </main>
-</body>
-</html>
+<table class="bbr-results-table">
+  <thead>
+    <tr>
+      <th rowspan="2">Case</th>
+      <th colspan="2">Forward recv (Mbps)</th>
+      <th colspan="2">Forward retrans</th>
+      <th colspan="2">Ping fwd avg (ms)</th>
+      <th colspan="2">Ping fwd max (ms)</th>
+    </tr>
+    <tr>
+      <th>Value</th>
+      <th>Improv.</th>
+      <th>Value</th>
+      <th>Improv.</th>
+      <th>Value</th>
+      <th>Improv.</th>
+      <th>Value</th>
+      <th>Improv.</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="vanilla-row">
+      <td><strong>Vanilla</strong> (bbr3vanilla)</td>
+      <td>81.23</td>
+      <td>-</td>
+      <td>580</td>
+      <td>-</td>
+      <td>28.71</td>
+      <td>-</td>
+      <td>73.05</td>
+      <td>-</td>
+    </tr>
+    <tr class="modified-row">
+      <td><strong>Modified</strong> (bbr3_112401)</td>
+      <td>84.99</td>
+      <td class="improv-plus">+4.63%</td>
+      <td>342</td>
+      <td class="improv-plus">+41.03%</td>
+      <td>25.96</td>
+      <td class="improv-plus">+9.58%</td>
+      <td>43.69</td>
+      <td class="improv-plus">+40.19%</td>
+    </tr>
+    <tr class="modified-row">
+      <td><strong>Modified</strong> (bbr3_112620)</td>
+      <td>84.01</td>
+      <td class="improv-plus">+3.42%</td>
+      <td>671</td>
+      <td class="improv-minus">-15.69%</td>
+      <td>27.69</td>
+      <td class="improv-plus">+3.55%</td>
+      <td>46.41</td>
+      <td class="improv-plus">+36.47%</td>
+    </tr>
+  </tbody>
+</table>

@@ -35,6 +35,7 @@ This document outlines the modifications made to the Linux kernel networking sta
 8.  **Verified `this_cpu_ptr` and `rcu_dereference` Usage:**
     *   The usage of `this_cpu_ptr` and `rcu_dereference` within `get_dst_entry_from_fib6_nh` (`net/ipv6/route.c`) was reviewed and confirmed to be appropriate, as it is always invoked within an RCU read-side critical section.
 
+
 ## Additional Power-Saving Scenarios to Consider
 
 Based on the current implementation, here are some further scenarios and features that could be explored to enhance power savings in the Linux network stack:
