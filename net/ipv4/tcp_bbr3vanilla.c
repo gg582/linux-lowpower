@@ -82,10 +82,6 @@
 #endif
 #define tcp_skb_prior_in_flight_is_suspicious(a,b,c) (0)
 
-/* Skip TSO below the following bandwidth (bits/sec): */
-static const int bbr_min_tso_rate = 1200000;
-
-static const u32 bbr_inflight_lo_headroom = 15;
 enum tcp_bbr_phase { BBR_PHASE_INVALID, BBR_PHASE_STARTUP, BBR_PHASE_DRAIN, BBR_PHASE_PROBE_BW_UP, BBR_PHASE_PROBE_BW_DOWN, BBR_PHASE_PROBE_BW_CRUISE, BBR_PHASE_PROBE_BW_REFILL, BBR_PHASE_PROBE_RTT };
 
 #ifndef TCP_ECN_OK
@@ -125,6 +121,9 @@ enum tcp_bbr_phase { BBR_PHASE_INVALID, BBR_PHASE_STARTUP, BBR_PHASE_DRAIN, BBR_
 #define BW_DELTA_ALPHA    (BBR_UNIT / 2) // the ratio for limiting reduce logic
 #define BW_DELTA_CEILING  (BBR_UNIT / 4) // max pacing reduce ratio: 25%
 #define BW_DELTA_FLOOR    (BBR_UNIT * 3 / 4) // when calculated pacing gain is dropped below 75%, turn on reduce_cwnd
+
+/* Skip TSO below the following bandwidth (bits/sec): */
+static const int bbr_min_tso_rate = 1200000;
 
 /* BBR has the following modes for deciding how fast to send: */
 enum bbr_mode {
@@ -213,7 +212,6 @@ struct bbr {
 		initialized:1;	       /* has bbr_init() been called? */
 	u32	alpha_last_delivered;	 /* tp->delivered    at alpha update */
 	u32	alpha_last_delivered_ce; /* tp->delivered_ce at alpha update */
-  u32 pacing_gain_extra      ; /* TWEAK: extra pacing gain metric */
 
 	u8	unused_4;		/* to preserve alignment */
 	struct tcp_plb_state plb;
@@ -504,7 +502,7 @@ static void bbr_set_pacing_rate(struct sock *sk, u32 bw, int gain)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct bbr *bbr = inet_csk_ca(sk);
-	unsigned long rate = bbr_bw_to_pacing_rate(sk, bw, (u64)gain * bbr->pacing_gain_extra >> BBR_SCALE);
+	unsigned long rate = bbr_bw_to_pacing_rate(sk, bw, gain);
 
 	if (unlikely(!bbr->has_seen_rtt && tp->srtt_us))
 		bbr_init_pacing_rate_from_rtt(sk);
@@ -743,7 +741,6 @@ static void bbr_set_cwnd(struct sock *sk, const struct rate_sample *rs,
 
 	if (bbr->reduce_cwnd) {
 		cwnd = max_t(s32, cwnd - acked, 1);
-		bbr->reduce_cwnd = 0;
 	}
 	target_cwnd = bbr_bdp(sk, bw, gain);
 
@@ -775,20 +772,6 @@ done:
 					   bbr_probe_rtt_cwnd(sk)));
 }
 
-static void bbr_tweak_pacing_reduction(struct sock *sk, u32 sample_bw, u32 old_bw)
-{
-	struct bbr *bbr = inet_csk_ca(sk);
-	u32 max_bw_val = max(bbr->bw_hi[0], bbr->bw_hi[1]);
-	if (!max_bw_val || sample_bw >= old_bw) { bbr->pacing_gain_extra = BBR_UNIT; return; }
-	u64 delta = ((u64)(old_bw - sample_bw) * BBR_UNIT) / max_bw_val;
-	u64 reduction = (delta * BW_DELTA_ALPHA) >> BBR_SCALE;
-	if (reduction > BW_DELTA_CEILING) reduction = BW_DELTA_CEILING;
-	bbr->pacing_gain_extra = BBR_UNIT - (u32)reduction;
-	if (bbr->pacing_gain_extra < BW_DELTA_FLOOR) {
-		bbr->reduce_cwnd = 1;
-		if (bbr->pacing_gain_extra < BBR_UNIT / 8) bbr->pacing_gain_extra = BBR_UNIT / 8;
-	}
-}
 
 static void bbr_reset_startup_mode(struct sock *sk)
 {
@@ -1229,28 +1212,39 @@ static void bbr_probe_inflight_hi_upward(struct sock *sk,
  */
 static bool bbr_is_inflight_too_high(struct sock *sk, const struct rate_sample *rs)
 {
+	struct bbr *bbr = inet_csk_ca(sk);
 	u64 loss_thresh;
+	u32 ecn_thresh;
 
 	if (rs->losses > 0 && rs->prior_in_flight) {
 		loss_thresh = (u64)rs->prior_in_flight * bbr_param(sk, loss_thresh) >> BBR_SCALE;
 		if (rs->losses > loss_thresh)
 			return true;
 	}
+
+	if (rs->delivered_ce > 0 && rs->delivered > 0 &&
+	    bbr->ecn_eligible && !!bbr_param(sk, ecn_thresh)) {
+		ecn_thresh = (u64)rs->delivered * bbr_param(sk, ecn_thresh) >> BBR_SCALE;
+		if (rs->delivered_ce > ecn_thresh)
+			return true;
+	}
+
 	return false;
 }
 
 static u32 bbr_inflight_with_headroom(struct sock *sk)
 {
-	u64 inflight, headroom;
+	struct bbr *bbr = inet_csk_ca(sk);
+	u32 headroom, headroom_fraction;
 
-	inflight = (u64)bbr_bw(sk) * bbr_param(sk, inflight_lo_headroom);
-	inflight >>= BBR_SCALE;
-	inflight = bbr_bw_to_pacing_rate(sk, inflight, BBR_UNIT);
+	headroom_fraction = bbr_param(sk, inflight_headroom);
+	headroom = ((u64)bbr->inflight_hi * headroom_fraction) >> BBR_SCALE;
+	headroom = max(headroom, 1U);
 
-	headroom = (u64)inflight * bbr_param(sk, inflight_lo_headroom) >> BBR_SCALE;
-
-	return max(1U, (u32)(inflight - headroom));
+	return max_t(s32, bbr->inflight_hi - headroom,
+		      bbr_param(sk, cwnd_min_target));
 }
+
 
 /* Bound cwnd to a sensible level, based on our current probing state
  * machine phase and model of a good inflight level (inflight_lo, inflight_hi).
@@ -2009,7 +2003,6 @@ __bpf_kfunc static void bbr_main(struct sock *sk, u32 ack, int flag,
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct bbr *bbr = inet_csk_ca(sk);
 	struct bbr_context ctx = { 0 };
-	u32 old_bw = bbr_bw(sk);
 	bool update_model = true;
 	u32 bw, round_delivered;
 	int ce_ratio = -1;
@@ -2032,11 +2025,9 @@ __bpf_kfunc static void bbr_main(struct sock *sk, u32 ack, int flag,
 
 	if (update_model)
 		bbr_update_model(sk, rs, &ctx);
-	if (rs->interval_us > 0) bbr_tweak_pacing_reduction(sk, ctx.sample_bw, old_bw);
 
 	bbr_update_gains(sk);
 	bw = bbr_bw(sk);
- 	bbr_tweak_pacing_reduction(sk, ctx.sample_bw, old_bw);
 	bbr_set_pacing_rate(sk, bw, bbr->pacing_gain);
 	bbr_set_cwnd(sk, rs, rs->acked_sacked, bw, bbr->cwnd_gain,
 		     tcp_snd_cwnd(tp), &ctx);
@@ -2070,7 +2061,6 @@ __bpf_kfunc static void bbr_init(struct sock *sk)
 	bbr->min_rtt_stamp = tcp_jiffies32;
 
 	bbr->has_seen_rtt = 0;
-	bbr->pacing_gain_extra = BBR_UNIT;
 	bbr_init_pacing_rate_from_rtt(sk);
 
 	bbr->round_start = 0;
@@ -2094,9 +2084,6 @@ __bpf_kfunc static void bbr_init(struct sock *sk)
 	bbr->prior_rcv_nxt = tp->rcv_nxt;
 	bbr->try_fast_path = 0;
 
-  // TWEAK: Initialize tweak vars
-  bbr->pacing_gain_extra = BBR_UNIT;
-  bbr->reduce_cwnd       = 0;
 
 	cmpxchg(&sk->sk_pacing_status, SK_PACING_NONE, SK_PACING_NEEDED);
 
@@ -2195,8 +2182,10 @@ __bpf_kfunc static u32 bbr_ssthresh(struct sock *sk)
 	bbr->undo_bw_lo		= bbr->bw_lo;
 	bbr->undo_inflight_lo	= bbr->inflight_lo;
 	bbr->undo_inflight_hi	= bbr->inflight_hi;
-	return tcp_sk(sk)->snd_ssthresh;
+	return bbr->prior_cwnd;
 }
+
+/* Entering loss recovery, so save state for when we undo recovery. */
 
 static size_t bbr_get_info(struct sock *sk, u32 ext, int *attr,
 			    union tcp_cc_info *info)
@@ -2248,7 +2237,7 @@ __bpf_kfunc static void bbr_set_state(struct sock *sk, u8 new_state)
 
 static struct tcp_congestion_ops tcp_bbr_cong_ops __read_mostly = {
 	.flags		= TCP_CONG_NON_RESTRICTED | TCP_CONG_WANTS_CE_EVENTS,
-	.name		= "bbr3",
+	.name		= "bbr3vanilla",
 	.owner		= THIS_MODULE,
 	.init		= bbr_init,
 	.cong_control	= bbr_main,
@@ -2310,5 +2299,5 @@ MODULE_AUTHOR("Arjun Roy <arjunroy@google.com>");
 MODULE_AUTHOR("David Morley <morleyd@google.com>");
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("TCP BBR (Bottleneck Bandwidth and RTT)");
+MODULE_DESCRIPTION("TCP BBRv3 vanilla (Bottleneck Bandwidth and RTT)");
 MODULE_VERSION(__stringify(BBR_VERSION));

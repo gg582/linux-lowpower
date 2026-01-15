@@ -139,6 +139,7 @@ struct inet_connection_sock {
 
 #define ICSK_CA_PRIV_SIZE      (152)
 	u64			  icsk_ca_priv[ICSK_CA_PRIV_SIZE / sizeof(u64)];
+#undef ICSK_CA_PRIV_SIZE
 #define ICSK_CA_PRIV_SIZE	  sizeof_field(struct inet_connection_sock, icsk_ca_priv)
 };
 
