@@ -1,0 +1,66 @@
+<style>
+  .bbr-results-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: center; }
+  .bbr-results-table th { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; font-weight: bold; }
+  .bbr-results-table td { border: 1px solid #dee2e6; padding: 10px; }
+  .improv-plus { color: #28a745; font-weight: bold; }
+  .improv-minus { color: #dc3545; font-weight: bold; }
+  .vanilla-row { background-color: #ffffff; }
+  .modified-row { background-color: #f1f8ff; }
+</style>
+
+<table class="bbr-results-table">
+  <thead>
+    <tr>
+      <th rowspan="2">Case</th>
+      <th colspan="2">Forward recv (Mbps)</th>
+      <th colspan="2">Forward retrans</th>
+      <th colspan="2">Ping fwd avg (ms)</th>
+      <th colspan="2">Ping fwd max (ms)</th>
+    </tr>
+    <tr>
+      <th>Value</th>
+      <th>Improv.</th>
+      <th>Value</th>
+      <th>Improv.</th>
+      <th>Value</th>
+      <th>Improv.</th>
+      <th>Value</th>
+      <th>Improv.</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="vanilla-row">
+      <td><strong>Vanilla</strong> (bbr3vanilla)</td>
+      <td>81.23</td>
+      <td>-</td>
+      <td>580</td>
+      <td>-</td>
+      <td>28.71</td>
+      <td>-</td>
+      <td>73.05</td>
+      <td>-</td>
+    </tr>
+    <tr class="modified-row">
+      <td><strong>Modified</strong> (bbr3_112401)</td>
+      <td>84.99</td>
+      <td class="improv-plus">+4.63%</td>
+      <td>342</td>
+      <td class="improv-plus">+41.03%</td>
+      <td>25.96</td>
+      <td class="improv-plus">+9.58%</td>
+      <td>43.69</td>
+      <td class="improv-plus">+40.19%</td>
+    </tr>
+    <tr class="modified-row">
+      <td><strong>Modified</strong> (bbr3_112620)</td>
+      <td>84.01</td>
+      <td class="improv-plus">+3.42%</td>
+      <td>671</td>
+      <td class="improv-minus">-15.69%</td>
+      <td>27.69</td>
+      <td class="improv-plus">+3.55%</td>
+      <td>46.41</td>
+      <td class="improv-plus">+36.47%</td>
+    </tr>
+  </tbody>
+</table>

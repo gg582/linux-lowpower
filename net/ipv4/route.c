@@ -1666,6 +1666,11 @@ struct rtable *rt_dst_alloc(struct net_device *dev,
 		rt->dst.output = ip_output;
 		if (flags & RTCF_LOCAL)
 			rt->dst.input = ip_local_deliver;
+
+		rt->dst.ema_k_factor = dev_net(dev)->ipv4.sysctl_lowpower_ema_k_factor;
+		rt->dst.power_cost_weight = dev_net(dev)->ipv4.sysctl_lowpower_power_cost_weight;
+		           WRITE_ONCE(rt->dst.ema_load, 0);		rt->dst.ema_time_delta = 0;
+		rt->dst.last_update_jiffies = 0;
 	}
 
 	return rt;

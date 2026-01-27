@@ -4855,13 +4855,10 @@ static inline void netif_addr_lock(struct net_device *dev)
 
 static inline void netif_addr_lock_bh(struct net_device *dev)
 {
-	unsigned char nest_level = 0;
-
 #ifdef CONFIG_LOCKDEP
 	nest_level = dev->nested_level;
 #endif
-	local_bh_disable();
-	spin_lock_nested(&dev->addr_list_lock, nest_level);
+	spin_lock_bh(&dev->addr_list_lock);
 }
 
 static inline void netif_addr_unlock(struct net_device *dev)
