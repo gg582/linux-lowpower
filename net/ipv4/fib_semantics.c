@@ -2188,6 +2188,7 @@ void fib_select_multipath(struct fib_result *res, int hash,
 	struct fib_info *fi = res->fi;
 	struct net *net = fi->fib_net;
 	bool use_neigh;
+	int score = -1;
 	__be32 saddr;
 	int found;
 	int lowpower_nh_index = -1;
@@ -2203,6 +2204,8 @@ void fib_select_multipath(struct fib_result *res, int hash,
 	found = 0;
 
 	change_nexthops(fi) {
+		int nh_upper_bound;
+    int nh_score = 0;
 		struct dst_entry *dst;
 		long current_weight;
 
@@ -2211,14 +2214,29 @@ void fib_select_multipath(struct fib_result *res, int hash,
 		     (nexthop_nh->fib_nh_flags & RTNH_F_LINKDOWN)) ||
 		    (use_neigh && !fib_good_nh(nexthop_nh)))
 			continue;
+    nh_upper_bound = atomic_read(&nexthop_nh->fib_nh_upper_bound);
 
 		dst = get_dst_entry_from_nhc(&nexthop_nh->nh_common);
 		current_weight = calculate_lowpower_weight(dst);
+    if (saddr && nexthop_nh->nh_saddr == saddr)
+        nh_score += 2;
+    if (hash <= nh_upper_bound)
+        nh_score++;
+        /* Update if current nexthop has a higher affinity score, 
+         * or if the score is equal but it has a better power weight.
+         */
+        if (nh_score > score || (nh_score == score && current_weight > max_ema_weight)) {
+            score = nh_score;
+            max_ema_weight = current_weight;
+            lowpower_nh_index = nhsel;
 
-		if (current_weight > max_ema_weight) {
-			max_ema_weight = current_weight;
-			lowpower_nh_index = nhsel;
-		}
+            /* Early return if a perfect path is found (Master logic) */
+            if (nh_score == 3 || (!saddr && nh_score == 1)) {
+                res->nh_sel = nhsel;
+                res->nhc = &nexthop_nh->nh_common;
+                return;
+            }
+        }
 	} endfor_nexthops(fi);
 
 	if (lowpower_nh_index != -1) {
@@ -2226,23 +2244,6 @@ void fib_select_multipath(struct fib_result *res, int hash,
 		res->nhc = fib_info_nhc(fi, lowpower_nh_index);
 		return;
 	}
-
-	change_nexthops(fi) {
-		int nh_upper_bound;
-
-		nh_upper_bound = atomic_read(&nexthop_nh->fib_nh_upper_bound);
-
-		if ((nh_upper_bound != -1) && (hash <= nh_upper_bound) &&
-		    !((nexthop_nh->fib_nh_flags & RTNH_F_DEAD)) &&
-		    !(ip_ignore_linkdown(nexthop_nh->fib_nh_dev) &&
-		      (nexthop_nh->fib_nh_flags & RTNH_F_LINKDOWN)) &&
-		    !(use_neigh && !fib_good_nh(nexthop_nh))) {
-			res->nh_sel = nhsel;
-			res->nhc = &nexthop_nh->nh_common;
-			found = 1;
-			break;
-		}
-	} endfor_nexthops(fi);
 
 	if (!found) {
 		res->nh_sel = 0;

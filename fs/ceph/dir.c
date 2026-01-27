@@ -998,13 +998,14 @@ static int prep_encrypted_symlink_target(struct ceph_mds_request *req,
 	if (err)
 		goto out;
 
-	req->r_path2 = kmalloc(CEPH_BASE64_CHARS(osd_link.len) + 1, GFP_KERNEL);
+	req->r_path2 = kmalloc(BASE64_CHARS(osd_link.len) + 1, GFP_KERNEL);
 	if (!req->r_path2) {
 		err = -ENOMEM;
 		goto out;
 	}
 
-	len = ceph_base64_encode(osd_link.name, osd_link.len, req->r_path2);
+	len = base64_encode(osd_link.name, osd_link.len,
+			    req->r_path2, false, BASE64_IMAP);
 	req->r_path2[len] = '\0';
 out:
 	fscrypt_fname_free_buffer(&osd_link);
@@ -2213,6 +2214,7 @@ const struct file_operations ceph_dir_fops = {
 	.fsync = ceph_fsync,
 	.lock = ceph_lock,
 	.flock = ceph_flock,
+	.setlease = simple_nosetlease,
 };
 
 const struct file_operations ceph_snapdir_fops = {
@@ -2220,6 +2222,7 @@ const struct file_operations ceph_snapdir_fops = {
 	.llseek = ceph_dir_llseek,
 	.open = ceph_open,
 	.release = ceph_release,
+	.setlease = simple_nosetlease,
 };
 
 const struct inode_operations ceph_dir_iops = {

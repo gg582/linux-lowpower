@@ -2,7 +2,7 @@
 /*
  * Performance events:
  *
- *    Copyright (C) 2008-2009, Thomas Gleixner <tglx@linutronix.de>
+ *    Copyright (C) 2008-2009, Linutronix GmbH, Thomas Gleixner <tglx@kernel.org>
  *    Copyright (C) 2008-2011, Red Hat, Inc., Ingo Molnar
  *    Copyright (C) 2008-2011, Red Hat, Inc., Peter Zijlstra
  *
@@ -382,6 +382,7 @@ enum perf_event_read_format {
 #define PERF_ATTR_SIZE_VER6			120	/* Add: aux_sample_size */
 #define PERF_ATTR_SIZE_VER7			128	/* Add: sig_data */
 #define PERF_ATTR_SIZE_VER8			136	/* Add: config3 */
+#define PERF_ATTR_SIZE_VER9			144	/* add: config4 */
 
 /*
  * 'struct perf_event_attr' contains various attributes that define
@@ -545,6 +546,7 @@ struct perf_event_attr {
 	__u64	sig_data;
 
 	__u64	config3; /* extension of config2 */
+	__u64	config4; /* extension of config3 */
 };
 
 /*
