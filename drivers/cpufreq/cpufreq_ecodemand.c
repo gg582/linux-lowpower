@@ -29,7 +29,7 @@
 #define DEF_UP_THRESHOLD		70
 #define DEF_DOWN_THRESHOLD		20
 #define DEF_FREQ_STEP			5
-#define DEF_SAMPLING_RATE		10000 /* 10 ms in us */
+#define DEF_SAMPLING_RATE		2000 /* 2 ms in us */
 #define DEF_SAMPLING_DOWN_FACTOR	1
 #define DEF_POWERSAVE_BIAS		0
 
