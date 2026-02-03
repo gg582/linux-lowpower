@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mountain-v0.1 ping comparison</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.35; margin: 24px; }
+  h1, h2 { margin: 0 0 12px; }
+  .note { color: #333; max-width: 980px; }
+  table.cmp { border-collapse: collapse; margin: 10px 0 24px; width: min(980px, 100%); }
+  table.cmp th, table.cmp td { border: 1px solid #ddd; padding: 8px 10px; font-variant-numeric: tabular-nums; }
+  table.cmp th { background: #f6f6f6; text-align: left; }
+  table.cmp td:nth-child(n+2) { text-align: right; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #f0f0f0; font-size: 12px; vertical-align: middle; }
+  .muted { color: #555; }
+</style>
+</head>
+<body>
+<h1>Ping comparison <span class="badge">mountain-v0.1</span></h1>
+<p class="note">
+  Positive values in “Δ vs …” mean lower-is-better improvement (latency / jitter-proxy reduced).
+  “Jitter” row is shown for reference only: the post reports <span class="muted">stdev</span>, while ping prints <span class="muted">mdev</span>.
+</p>
+
+<h2>Local ping: 127.0.0.1 (ms)</h2>
+<table class="cmp">
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Vanilla</th>
+      <th>ECMP Patched</th>
+      <th>mountain-v0.1 (6.18.0-mountain+)</th>
+      <th>Δ vs Vanilla</th>
+      <th>Δ vs ECMP Patched</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Min</td><td>0.011000</td><td>0.010000</td><td>0.010000</td><td>+9.09%</td><td>+0.00%</td></tr>
+    <tr><td>Avg</td><td>0.029343</td><td>0.017279</td><td>0.014000</td><td>+52.29%</td><td>+18.98%</td></tr>
+    <tr><td>Max</td><td>4.650</td><td>0.059000</td><td>0.067000</td><td>+98.56%</td><td>-13.56%</td></tr>
+    <tr><td>Max-Min (spread)</td><td>4.639</td><td>0.049000</td><td>0.057000</td><td>+98.77%</td><td>-16.33%</td></tr>
+    <tr><td>Jitter (stdev in post / mdev in ping)</td><td>0.146496</td><td>0.006409</td><td>0.006000</td><td>—</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<p class="note muted">
+  Note: your mountain-v0.1 values are from ping summary (min/avg/max/mdev). Vanilla/ECMP Patched values are from the post’s computed table.
+  WAN test is excluded because I must regenerate whole test files with other kernels.
+</p>
+</body>
+</html>
