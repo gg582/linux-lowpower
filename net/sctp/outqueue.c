@@ -1434,10 +1434,13 @@ int sctp_outq_is_empty(const struct sctp_outq *q)
  */
 static inline long calculate_lowpower_weight(struct dst_entry *dst)
 {
-	if (!dst)
+	struct dst_power *p = dst_power_ptr(dst);
+
+	if (!p)
 		return 0;
 
-	   return (READ_ONCE(dst->ema_load) + READ_ONCE(dst->ema_time_delta)) * READ_ONCE(dst->power_cost_weight);}
+	return (READ_ONCE(p->ema_load) + READ_ONCE(p->ema_time_delta)) * READ_ONCE(p->power_cost_weight);
+}
 
 static void sctp_check_transmitted(struct sctp_outq *q,
 				   struct list_head *transmitted_queue,

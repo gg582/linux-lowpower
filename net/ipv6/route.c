@@ -343,11 +343,15 @@ struct rt6_info *ip6_dst_alloc(struct net *net, struct net_device *dev,
 					DST_OBSOLETE_FORCE_CHK, flags);
 
 	if (rt) {
+		struct dst_power *p = dst_power_ptr(&rt->dst);
 		rt6_info_init(rt);
-		                WRITE_ONCE(rt->dst.ema_k_factor, READ_ONCE(net->ipv4.sysctl_lowpower_ema_k_factor));
-		                WRITE_ONCE(rt->dst.power_cost_weight, READ_ONCE(net->ipv4.sysctl_lowpower_power_cost_weight));
-		                WRITE_ONCE(rt->dst.ema_load, 0);
-		                WRITE_ONCE(rt->dst.ema_time_delta, 0);		rt->dst.last_update_jiffies = 0;
+		if (p) {
+			WRITE_ONCE(p->ema_k_factor, READ_ONCE(net->ipv4.sysctl_lowpower_ema_k_factor));
+			WRITE_ONCE(p->power_cost_weight, READ_ONCE(net->ipv4.sysctl_lowpower_power_cost_weight));
+			WRITE_ONCE(p->ema_load, 0);
+			WRITE_ONCE(p->ema_time_delta, 0);
+			p->last_update_jiffies = 0;
+		}
 		atomic_inc(&net->ipv6.rt6_stats->fib_rt_alloc);
 	}
 
@@ -426,10 +430,13 @@ static inline struct dst_entry *get_dst_entry_from_fib6_nh(const struct fib6_nh 
 
 static inline long calculate_lowpower_weight(struct dst_entry *dst)
 {
-	if (!dst)
+	struct dst_power *p = dst_power_ptr(dst);
+
+	if (!p)
 		return 0;
 
-	    return (READ_ONCE(dst->ema_load) + READ_ONCE(dst->ema_time_delta)) * READ_ONCE(dst->power_cost_weight);}
+	return (READ_ONCE(p->ema_load) + READ_ONCE(p->ema_time_delta)) * READ_ONCE(p->power_cost_weight);
+}
 
 static struct fib6_info *
 rt6_multipath_first_sibling_rcu(const struct fib6_info *rt)

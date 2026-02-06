@@ -13312,27 +13312,33 @@ out:
 static void update_dst_ems_metrics(struct dst_entry *dst, unsigned int tx_bytes)
 {
 	u64 cur_jiffies = get_jiffies_64();
-	u64 delta_t = cur_jiffies - READ_ONCE(dst->last_update_jiffies);
+	struct dst_power *p = dst_power_ptr(dst);
 	u64 cur_load_rate;
+	u64 delta_t;
+
+	if (!p)
+		return;
+
+	delta_t = cur_jiffies - READ_ONCE(p->last_update_jiffies);
 
 	if (!delta_t)
 		return;
 
 	cur_load_rate = tx_bytes / delta_t;
 
-	WRITE_ONCE(dst->ema_load, EMA_UPDATE(READ_ONCE(dst->ema_k_factor), READ_ONCE(dst->ema_load),
+	WRITE_ONCE(p->ema_load, EMA_UPDATE(READ_ONCE(p->ema_k_factor), READ_ONCE(p->ema_load),
 				   cur_load_rate));
 
 	u64 diff;
-	if (cur_load_rate > READ_ONCE(dst->ema_load))
-		diff = cur_load_rate - READ_ONCE(dst->ema_load);
+	if (cur_load_rate > READ_ONCE(p->ema_load))
+		diff = cur_load_rate - READ_ONCE(p->ema_load);
 	else
-		diff = READ_ONCE(dst->ema_load) - cur_load_rate;
+		diff = READ_ONCE(p->ema_load) - cur_load_rate;
 
-	WRITE_ONCE(dst->ema_time_delta, EMA_UPDATE(READ_ONCE(dst->ema_k_factor),
-					 READ_ONCE(dst->ema_time_delta),
+	WRITE_ONCE(p->ema_time_delta, EMA_UPDATE(READ_ONCE(p->ema_k_factor),
+					 READ_ONCE(p->ema_time_delta),
 					 diff));
-	WRITE_ONCE(dst->last_update_jiffies, cur_jiffies);
+	WRITE_ONCE(p->last_update_jiffies, cur_jiffies);
 }
 
 subsys_initcall(net_dev_init);

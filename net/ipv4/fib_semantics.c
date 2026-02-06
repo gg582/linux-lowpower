@@ -95,10 +95,12 @@ static inline struct dst_entry *get_dst_entry_from_nhc(struct fib_nh_common *nhc
 
 static inline long calculate_lowpower_weight(struct dst_entry *dst)
 {
-	if (!dst)
+	struct dst_power *p = dst_power_ptr(dst);
+
+	if (!p)
 		return 0;
 
-	return (dst->ema_load + dst->ema_time_delta) * dst->power_cost_weight;
+	return (READ_ONCE(p->ema_load) + READ_ONCE(p->ema_time_delta)) * READ_ONCE(p->power_cost_weight);
 }
 
 
