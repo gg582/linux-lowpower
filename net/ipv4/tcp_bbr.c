@@ -77,6 +77,11 @@
 #define BBR_SCALE 8	/* scaling factor for fractions in BBR (e.g. gains) */
 #define BBR_UNIT (1 << BBR_SCALE)
 
+/* TWEAK: Bandwidth delta parameters for pacing reduction */
+#define BW_DELTA_ALPHA		(BBR_UNIT / 2)	/* Rate of change for pacing */
+#define BW_DELTA_CEILING	(BBR_UNIT / 4)	/* Max reduction factor */
+#define BW_DELTA_FLOOR		(BBR_UNIT * 3 / 4)	/* Min pacing gain */
+
 /* BBR has the following modes for deciding how fast to send: */
 enum bbr_mode {
 	BBR_STARTUP,	/* ramp up sending rate rapidly to fill pipe */
@@ -124,7 +129,8 @@ struct bbr {
 	u32	ack_epoch_acked:20,	/* packets (S)ACKed in sampling epoch */
 		extra_acked_win_rtts:5,	/* age of extra_acked, in round trips */
 		extra_acked_win_idx:1,	/* current index in extra_acked array */
-		unused_c:6;
+		reduce_cwnd:1,		/* TWEAK: reduce cwnd after pacing drop */
+		unused_c:5;
 };
 
 #define CYCLE_LEN	8	/* number of phases in a pacing gain cycle */
@@ -526,6 +532,12 @@ static void bbr_set_cwnd(struct sock *sk, const struct rate_sample *rs,
 	if (!acked)
 		goto done;  /* no packet fully ACKed; just apply caps */
 
+	/* TWEAK: Reduce cwnd if pacing gain dropped significantly */
+	if (bbr->reduce_cwnd) {
+		cwnd = max_t(s32, cwnd - acked, 1);
+		bbr->reduce_cwnd = 0; /* Consume flag */
+	}
+
 	if (bbr_set_cwnd_to_recover_or_restore(sk, rs, acked, &cwnd))
 		goto done;
 
@@ -763,6 +775,7 @@ static void bbr_update_bw(struct sock *sk, const struct rate_sample *rs)
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct bbr *bbr = inet_csk_ca(sk);
 	u64 bw;
+	u64 old_bw = bbr_bw(sk); /* TWEAK: Scrape old BW */
 
 	bbr->round_start = 0;
 	if (rs->delivered < 0 || rs->interval_us <= 0)
@@ -778,10 +791,6 @@ static void bbr_update_bw(struct sock *sk, const struct rate_sample *rs)
 
 	bbr_lt_bw_sampling(sk, rs);
 
-	/* Divide delivered by the interval to find a (lower bound) bottleneck
-	 * bandwidth sample. Delivered is in packets and interval_us in uS and
-	 * ratio will be <<1 for most connections. So delivered is first scaled.
-	 */
 	bw = div64_long((u64)rs->delivered * BW_UNIT, rs->interval_us);
 
 	/* If this sample is application-limited, it is likely to have a very
@@ -790,15 +799,40 @@ static void bbr_update_bw(struct sock *sk, const struct rate_sample *rs)
 	 * bw, causing needless slow-down. Thus, to continue to send at the
 	 * last measured network rate, we filter out app-limited samples unless
 	 * they describe the path bw at least as well as our bw model.
-	 *
-	 * So the goal during app-limited phase is to proceed with the best
-	 * network rate no matter how long. We automatically leave this
-	 * phase when app writes faster than the network can deliver :)
 	 */
 	if (!rs->is_app_limited || bw >= bbr_max_bw(sk)) {
 		/* Incorporate new sample into our max bw filter. */
 		minmax_running_max(&bbr->bw, bbr_bw_rtts, bbr->rtt_cnt, bw);
 	}
+
+	/* START TWEAK: Pacing reduction on bandwidth drop */
+	do {
+		u64 max_bw = bbr_max_bw(sk);
+		u64 delta, pacing_factor;
+
+		if (!max_bw || bw >= old_bw)
+			break;
+
+		/* Calculate reduction factor based on bandwidth drop */
+		delta = ((old_bw - bw) * BBR_UNIT) / max_bw;
+		pacing_factor = (delta * BW_DELTA_ALPHA) >> BBR_SCALE;
+
+		if (pacing_factor > BW_DELTA_CEILING)
+			pacing_factor = BW_DELTA_CEILING;
+
+		/* Apply the factor to the current pacing_gain */
+		if (pacing_factor < BBR_UNIT)
+			bbr->pacing_gain = (bbr->pacing_gain * (BBR_UNIT - pacing_factor)) >> BBR_SCALE;
+
+		bbr->reduce_cwnd = 0;
+		if (bbr->pacing_gain < BW_DELTA_FLOOR) {
+			bbr->reduce_cwnd = 1;
+			/* Don't let pacing gain get too low */
+			if (bbr->pacing_gain < BBR_UNIT / 8)
+				bbr->pacing_gain = BBR_UNIT / 8;
+		}
+	} while (0);
+	/* END TWEAK */
 }
 
 /* Estimates the windowed max degree of ack aggregation.

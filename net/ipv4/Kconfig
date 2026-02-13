@@ -767,3 +767,21 @@ config TCP_MD5SIG
 	  on the Internet.
 
 	  If unsure, say N.
+config TCP_CONG_BBR3
+	tristate "TCP BBR v3 with Pacing Tweak"
+	default y
+	help
+	  BBR (Bottleneck Bandwidth and RTT) v3 congestion control with
+	  custom pacing reduction tweaks. This is a model-based algorithm
+	  designed to keep queues small and utilize high bandwidth.
+
+	  It requires the fq (Fair Queue)-pacing qdisc to be fully effective.
+config TCP_CONG_BBR3VANILLA
+	tristate "TCP BBR v3"
+	default y
+	help
+	  BBR (Bottleneck Bandwidth and RTT) v3 congestion control with
+	  custom pacing reduction tweaks. This is a model-based algorithm
+	  designed to keep queues small and utilize high bandwidth.
+
+	  It requires the fq (Fair Queue)-pacing qdisc to be fully effective.
