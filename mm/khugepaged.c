@@ -345,15 +345,6 @@ int hugepage_madvise(struct vm_area_struct *vma,
 {
 	switch (advice) {
 	case MADV_HUGEPAGE:
-#ifdef CONFIG_S390
-		/*
-		 * qemu blindly sets MADV_HUGEPAGE on all allocations, but s390
-		 * can't handle this properly after s390_enable_sie, so we simply
-		 * ignore the madvise to prevent qemu from causing a SIGSEGV.
-		 */
-		if (mm_has_pgste(vma->vm_mm))
-			return 0;
-#endif
 		*vm_flags &= ~VM_NOHUGEPAGE;
 		*vm_flags |= VM_HUGEPAGE;
 		/*
@@ -1741,7 +1732,7 @@ static bool file_backed_vma_is_retractable(struct vm_area_struct *vma)
 	 * obtained on guard region installation after the flag is set, so this
 	 * check being performed under this lock excludes races.
 	 */
-	if (vma_flag_test_atomic(vma, VMA_MAYBE_GUARD_BIT))
+	if (vma_test_atomic_flag(vma, VMA_MAYBE_GUARD_BIT))
 		return false;
 
 	return true;
@@ -2778,7 +2769,7 @@ int madvise_collapse(struct vm_area_struct *vma, unsigned long start,
 	if (!thp_vma_allowable_order(vma, vma->vm_flags, TVA_FORCED_COLLAPSE, PMD_ORDER))
 		return -EINVAL;
 
-	cc = kmalloc(sizeof(*cc), GFP_KERNEL);
+	cc = kmalloc_obj(*cc);
 	if (!cc)
 		return -ENOMEM;
 	cc->is_khugepaged = false;
