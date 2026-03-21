@@ -1314,12 +1314,6 @@ struct tcp_congestion_ops {
 	/* override tcp_tso_autosize */
 	u32 (*tso_segs)(struct sock *sk, unsigned int mss_now);
 
-	/* call when packets are delivered to update cwnd and pacing rate,
-	 * after all the ca_state processing. (optional)
-	 */
-	void (*cong_control)(struct sock *sk, u32 ack, int flag, const struct rate_sample *rs);
-
-
 	/* new value of cwnd after loss (required) */
 	u32  (*undo_cwnd)(struct sock *sk);
 	/* returns the multiplier used in tcp_sndbuf_expand (optional) */
